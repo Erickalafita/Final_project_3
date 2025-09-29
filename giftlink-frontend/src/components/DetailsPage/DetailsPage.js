@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { urlConfig } from '../../config';
+import { useAppContext } from '../../context/AuthContext';
 import './DetailsPage.css';
 
 function DetailsPage() {
@@ -9,6 +10,11 @@ function DetailsPage() {
     const [gift, setGift] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState('');
+    const [commentAuthor, setCommentAuthor] = useState('');
+    const [submittingComment, setSubmittingComment] = useState(false);
+    const { isLoggedIn, userName } = useAppContext();
 
 	useEffect(() => {
         // get the gift to be rendered on the details page
@@ -28,12 +34,31 @@ function DetailsPage() {
             }
         };
 
+        // Fetch comments for this gift
+        const fetchComments = async () => {
+            try {
+                const response = await fetch(`${urlConfig.backendUrl}/api/comments/${productId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setComments(data);
+                }
+            } catch (error) {
+                console.error('Error fetching comments:', error);
+            }
+        };
+
         fetchGift();
+        fetchComments();
 
 		// Task 3: Scroll to top on component mount
 		window.scrollTo(0, 0);
 
-    }, [productId, navigate]);
+        // Set author from logged-in user
+        if (isLoggedIn) {
+            setCommentAuthor(userName);
+        }
+
+    }, [productId, navigate, isLoggedIn, userName]);
 
 
     const handleBackClick = () => {
@@ -41,29 +66,60 @@ function DetailsPage() {
 		navigate(-1);
 	};
 
-	//The comments have been hardcoded for this project.
-    const comments = [
-        {
-            author: "John Doe",
-            comment: "I would like this!"
-        },
-        {
-            author: "Jane Smith",
-            comment: "Just DMed you."
-        },
-        {
-            author: "Alice Johnson",
-            comment: "I will take it if it's still available."
-        },
-        {
-            author: "Mike Brown",
-            comment: "This is a good one!"
-        },
-        {
-            author: "Sarah Wilson",
-            comment: "My family can use one. DM me if it is still available. Thank you!"
+    const handleCommentSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!isLoggedIn) {
+            alert('Please login to add a comment');
+            navigate('/app/login');
+            return;
         }
-    ];
+
+        if (!newComment.trim()) {
+            alert('Please enter a comment');
+            return;
+        }
+
+        setSubmittingComment(true);
+
+        try {
+            const response = await fetch(`${urlConfig.backendUrl}/api/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    giftId: productId,
+                    author: commentAuthor,
+                    comment: newComment
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to add comment');
+            }
+
+            const data = await response.json();
+
+            // Add new comment to the list
+            setComments([...comments, data.comment]);
+            setNewComment('');
+        } catch (error) {
+            console.error('Error adding comment:', error);
+            alert('Failed to add comment. Please try again.');
+        } finally {
+            setSubmittingComment(false);
+        }
+    };
+
+    const getSentimentBadge = (sentiment) => {
+        const badgeColors = {
+            positive: 'success',
+            negative: 'danger',
+            neutral: 'secondary'
+        };
+        return `badge bg-${badgeColors[sentiment] || 'secondary'}`;
+    };
 
 
     if (loading) return <div>Loading...</div>;
@@ -92,16 +148,73 @@ return (
                     <p><strong>Description:</strong> {gift.description}</p>
                 </div>
             </div>
+
             <div className="comments-section mt-4">
                 <h3 className="mb-3">Comments</h3>
-                {comments.map((comment, index) => (
-                    <div key={index} className="card mb-3">
+
+                {/* Add Comment Form */}
+                {isLoggedIn && (
+                    <div className="card mb-3 bg-light">
                         <div className="card-body">
-                            <p className="comment-author"><strong>{comment.author}:</strong></p>
-                            <p className="comment-text">{comment.comment}</p>
+                            <h5>Add a Comment</h5>
+                            <form onSubmit={handleCommentSubmit}>
+                                <div className="mb-3">
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="Your name"
+                                        value={commentAuthor}
+                                        onChange={(e) => setCommentAuthor(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="mb-3">
+                                    <textarea
+                                        className="form-control"
+                                        rows="3"
+                                        placeholder="Write your comment..."
+                                        value={newComment}
+                                        onChange={(e) => setNewComment(e.target.value)}
+                                        required
+                                    ></textarea>
+                                </div>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={submittingComment}
+                                >
+                                    {submittingComment ? 'Submitting...' : 'Submit Comment'}
+                                </button>
+                            </form>
                         </div>
                     </div>
-                ))}
+                )}
+
+                {/* Display Comments */}
+                {comments.length > 0 ? (
+                    comments.map((comment, index) => (
+                        <div key={comment._id || index} className="card mb-3">
+                            <div className="card-body">
+                                <div className="d-flex justify-content-between align-items-start">
+                                    <p className="comment-author"><strong>{comment.author}:</strong></p>
+                                    {comment.sentiment && (
+                                        <span className={getSentimentBadge(comment.sentiment)}>
+                                            {comment.sentiment}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="comment-text">{comment.comment}</p>
+                                {comment.timestamp && (
+                                    <small className="text-muted">
+                                        {new Date(comment.timestamp).toLocaleString()}
+                                    </small>
+                                )}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <p className="text-muted">No comments yet. Be the first to comment!</p>
+                )}
             </div>
         </div>
     );

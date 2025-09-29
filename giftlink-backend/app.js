@@ -31,6 +31,9 @@ const searchRoutes = require('./routes/searchRoutes');
 // Auth routes
 const authRoutes = require('./routes/authRoutes');
 
+// Comment routes
+const commentRoutes = require('./routes/commentRoutes');
+
 
 const pinoHttp = require('pino-http');
 const logger = require('./logger');
@@ -46,6 +49,9 @@ app.use('/api/search', searchRoutes);
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Comment routes
+app.use('/api/comments', commentRoutes);
 
 
 // Global Error Handler
