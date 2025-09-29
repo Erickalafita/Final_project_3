@@ -1,0 +1,134 @@
+name: Deploy to IBM Cloud Code Engine
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  IBM_CLOUD_REGION: us-south
+  CODE_ENGINE_PROJECT: giftlink-app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install IBM Cloud CLI
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          ibmcloud --version
+          ibmcloud config --check-version=false
+          ibmcloud plugin install -f code-engine
+
+      - name: Authenticate with IBM Cloud
+        env:
+          IBM_CLOUD_API_KEY: ${{ secrets.IBM_CLOUD_API_KEY }}
+        run: |
+          ibmcloud login --apikey "${IBM_CLOUD_API_KEY}" -r "${IBM_CLOUD_REGION}"
+          ibmcloud target -r "${IBM_CLOUD_REGION}"
+
+      - name: Select Code Engine project
+        run: |
+          ibmcloud ce project select --name "${CODE_ENGINE_PROJECT}"
+
+      - name: Deploy Sentiment Service
+        run: |
+          ibmcloud ce application update \
+            --name sentiment-service \
+            --build-source ./sentiment \
+            --strategy dockerfile \
+            --wait \
+            || ibmcloud ce application create \
+            --name sentiment-service \
+            --build-source ./sentiment \
+            --strategy dockerfile \
+            --port 3000 \
+            --min-scale 1 \
+            --max-scale 2 \
+            --cpu 0.25 \
+            --memory 0.5G \
+            --wait
+
+      - name: Get Sentiment Service URL
+        id: sentiment-url
+        run: |
+          SENTIMENT_URL=$(ibmcloud ce app get --name sentiment-service -o url)
+          echo "url=$SENTIMENT_URL" >> $GITHUB_OUTPUT
+
+      - name: Deploy Backend API
+        env:
+          MONGO_URL: ${{ secrets.MONGO_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          ibmcloud ce application update \
+            --name backend-api \
+            --build-source ./giftlink-backend \
+            --strategy dockerfile \
+            --env MONGO_URL="${MONGO_URL}" \
+            --env JWT_SECRET="${JWT_SECRET}" \
+            --env SENTIMENT_URL="${{ steps.sentiment-url.outputs.url }}" \
+            --wait \
+            || ibmcloud ce application create \
+            --name backend-api \
+            --build-source ./giftlink-backend \
+            --strategy dockerfile \
+            --port 3060 \
+            --min-scale 1 \
+            --max-scale 3 \
+            --cpu 0.5 \
+            --memory 1G \
+            --env MONGO_URL="${MONGO_URL}" \
+            --env JWT_SECRET="${JWT_SECRET}" \
+            --env SENTIMENT_URL="${{ steps.sentiment-url.outputs.url }}" \
+            --wait
+
+      - name: Get Backend API URL
+        id: backend-url
+        run: |
+          BACKEND_URL=$(ibmcloud ce app get --name backend-api -o url)
+          echo "url=$BACKEND_URL" >> $GITHUB_OUTPUT
+
+      - name: Deploy Frontend
+        run: |
+          ibmcloud ce application update \
+            --name frontend \
+            --build-source ./giftlink-frontend \
+            --strategy dockerfile \
+            --env REACT_APP_BACKEND_URL="${{ steps.backend-url.outputs.url }}" \
+            --wait \
+            || ibmcloud ce application create \
+            --name frontend \
+            --build-source ./giftlink-frontend \
+            --strategy dockerfile \
+            --port 80 \
+            --min-scale 1 \
+            --max-scale 3 \
+            --cpu 0.25 \
+            --memory 0.5G \
+            --env REACT_APP_BACKEND_URL="${{ steps.backend-url.outputs.url }}" \
+            --wait
+
+      - name: Get Frontend URL
+        id: frontend-url
+        run: |
+          FRONTEND_URL=$(ibmcloud ce app get --name frontend -o url)
+          echo "url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Complete! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Application URLs:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend:** ${{ steps.frontend-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend API:** ${{ steps.backend-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Sentiment Service:** ${{ steps.sentiment-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Visit the frontend URL to test the application" >> $GITHUB_STEP_SUMMARY
+          echo "2. Import sample data if needed" >> $GITHUB_STEP_SUMMARY
+          echo "3. Monitor logs with \`ibmcloud ce app logs\`" >> $GITHUB_STEP_SUMMARY

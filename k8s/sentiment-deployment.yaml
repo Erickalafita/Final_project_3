@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentiment-service
+  labels:
+    app: sentiment-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sentiment-service
+  template:
+    metadata:
+      labels:
+        app: sentiment-service
+    spec:
+      containers:
+      - name: sentiment-service
+        image: giftlink-sentiment:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: LOG_LEVEL
+          value: "info"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentiment-service
+spec:
+  selector:
+    app: sentiment-service
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP
