@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: giftlink-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - giftlink-network
+
+  # Sentiment Analysis Service
+  sentiment:
+    build:
+      context: ./sentiment
+      dockerfile: Dockerfile
+    container_name: giftlink-sentiment
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - LOG_LEVEL=info
+    depends_on:
+      - mongodb
+    networks:
+      - giftlink-network
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./giftlink-backend
+      dockerfile: Dockerfile
+    container_name: giftlink-backend
+    restart: unless-stopped
+    ports:
+      - "3060:3060"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - JWT_SECRET=your_jwt_secret_key_here_change_in_production
+      - SENTIMENT_URL=http://sentiment:3000
+    depends_on:
+      - mongodb
+      - sentiment
+    networks:
+      - giftlink-network
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./giftlink-frontend
+      dockerfile: Dockerfile
+    container_name: giftlink-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:3060
+    depends_on:
+      - backend
+    networks:
+      - giftlink-network
+
+networks:
+  giftlink-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
