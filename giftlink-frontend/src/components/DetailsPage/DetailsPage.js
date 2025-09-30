@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { urlConfig } from '../../config';
 import { useAppContext } from '../../context/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import './DetailsPage.css';
 
 function DetailsPage() {
     const navigate = useNavigate();
     const { productId } = useParams();
+    const { addToCart } = useCart();
     const [gift, setGift] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -130,7 +132,7 @@ return (
         <div className="container mt-5">
             <button className="btn btn-secondary mb-3" onClick={handleBackClick}>Back</button>
             <div className="card product-details-card">
-                <div className="card-header text-white">
+                <div className="card-header">
                     <h2 className="details-title">{gift.name}</h2>
                 </div>
                 <div className="card-body">
@@ -146,6 +148,10 @@ return (
                     <p><strong>Date Added:</strong> {new Date(gift.date_added * 1000).toLocaleDateString()}</p>
                     <p><strong>Age (Years):</strong> {gift.age_years}</p>
                     <p><strong>Description:</strong> {gift.description}</p>
+
+                    <button onClick={() => { addToCart(gift); alert('Added to cart!'); }} className="btn btn-success buy-btn-details mt-3">
+                        <span className="btn-icon">🛒</span> Add to Cart
+                    </button>
                 </div>
             </div>
 

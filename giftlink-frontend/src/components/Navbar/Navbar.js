@@ -1,10 +1,13 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 
 export default function Navbar() {
     const { isLoggedIn, userName, setIsLoggedIn, setUserName } = useAppContext();
+    const { getCartTotal } = useCart();
     const navigate = useNavigate();
+    const cartCount = getCartTotal();
 
     const handleLogout = () => {
         sessionStorage.removeItem('auth-token');
@@ -30,6 +33,14 @@ export default function Navbar() {
                     </li>
                     <li className="nav-item">
                         <Link className="nav-link" to="/search">Search</Link>
+                    </li>
+                    <li className="nav-item">
+                        <Link className="nav-link cart-link" to="/app/cart">
+                            🛒 Cart
+                            {cartCount > 0 && (
+                                <span className="cart-badge">{cartCount}</span>
+                            )}
+                        </Link>
                     </li>
                 </ul>
                 <ul className="navbar-nav">

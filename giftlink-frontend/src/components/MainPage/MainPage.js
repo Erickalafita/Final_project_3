@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {urlConfig} from '../../config';
+import { useCart } from '../../contexts/CartContext';
 
 function MainPage() {
     const [gifts, setGifts] = useState([]);
     const navigate = useNavigate();
+    const { addToCart } = useCart();
 
     useEffect(() => {
         // Task 1: Write async fetch operation
@@ -44,6 +46,7 @@ function MainPage() {
 
     return (
         <div className="container mt-5">
+            <h1 className="text-center mb-5 welcome-title">Welcome to GiftLink</h1>
             <div className="row">
                 {gifts.map((gift) => (
                     <div key={gift.id} className="col-md-4 mb-4">
@@ -78,9 +81,14 @@ function MainPage() {
                                     <small className="text-muted">Added: {formatDate(gift.date_added)}</small>
                                 </p>
 
-                                <button onClick={() => goToDetailsPage(gift.id)} className="btn btn-primary">
-                                    View Details
-                                </button>
+                                <div className="button-group">
+                                    <button onClick={() => goToDetailsPage(gift.id)} className="btn btn-primary">
+                                        View Details
+                                    </button>
+                                    <button onClick={() => { addToCart(gift); alert('Added to cart!'); }} className="btn btn-success buy-btn">
+                                        <span className="btn-icon">🛒</span> Add to Cart
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

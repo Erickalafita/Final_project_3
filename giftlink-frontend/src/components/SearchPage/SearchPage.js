@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import {urlConfig} from '../../config';
+import './SearchPage.css';
 
 function SearchPage() {
 
@@ -82,6 +83,7 @@ function SearchPage() {
 
     return (
         <div className="container mt-5">
+            <h1 className="search-title">Search Gifts</h1>
             <div className="row justify-content-center">
                 <div className="col-md-8">
                     <div className="filter-section mb-3 p-3 border rounded">
